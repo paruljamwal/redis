@@ -26,15 +26,18 @@ const client=require("../config/redis");
 
 //get------------------------------------------->
 router.get("",async(req,res)=>{
+    const page=+req.query.page || 1;
+    const size=+req.query.size || 5;
     try{
-         client.get("userproducts",async function(err,fetchproducts){
+         client.get(`userproducts.${page}.${size}`,async function(err,fetchproducts){
              if(fetchproducts){
                  const userproducts=JSON.parse(fetchproducts);
                  return res.status(202).send({userproducts,redis:true});
              }
              else{
                  try{
-                    const userproducts=await productmodel.find({}).lean().exec();
+                     const offset=(page-1)*size;
+                    const userproducts=await productmodel.find({}).skip(offset).limit(size).lean().exec();
                     client.set("userproducts",JSON.stringify(userproducts));
                     return res.status(202).send({userproducts,redis:false});
                  }
@@ -107,7 +110,7 @@ router.delete("/:id",async(req,res)=>{
         const userproducts=await productmodel.find({}).lean().exec();
     //delete from redis also
         client.del(`userproducts.${req.params.id}`);
-        client.set("userproducts",JSON.stringify(product));
+        client.hmset("userproducts",JSON.stringify(product));
         return res.status(202).send(product);
     }
     catch(err){
